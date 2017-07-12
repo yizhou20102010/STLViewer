@@ -6,13 +6,15 @@
 class TriangleMesh
 {
 public:
-    TriangleMesh(QVector<QVector3D> vertices, QVector<int>indices);
+    TriangleMesh(QVector<QVector3D> vertices, QVector<int>indices, QString filename);
 
 private:
 
 public:
     QVector<QVector3D>vertices;
     QVector<int>indices;
+    QString name;
+    QVector3D pmin,pmax;
 
 public:
     bool empty() const;

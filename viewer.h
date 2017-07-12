@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <QGLViewer/qglviewer.h>
 #include "trianglemesh.h"
+#include "object.h"
+#include <QList>
 
 using namespace qglviewer;
 
@@ -16,19 +18,25 @@ public:
     virtual void init();
     virtual void draw();
     virtual QString helpString() const;
+    virtual void drawWithNames();
+    virtual void postSelection(const QPoint &point);
 signals:
 
 public slots:
     void onshowModel(TriangleMesh* mesh, bool is_reload);
 
 private:
-    qglviewer::Vec orig, dir, selectedPoint;
-    TriangleMesh *modelmesh;
+    Vec orig, dir, selectedPoint;
     Vec pmin, pmax; //显示bound
+    QList<Object *> models;
+    int curselindex; //选择
+
+    void DrawBasicPrintStructure();
 
 public:
     void show_help_contents();
-    void reLoadViewFrame(const int type=0);
+    void loadProjectionType(const int type=0);
+    void loadStandardCamera(const int index = 0);
 };
 
 #endif // VIEWER_H

@@ -28,18 +28,25 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
+    viewer.cpp \
     modelloader_stl.cpp \
     trianglemesh.cpp \
-    viewer.cpp
+    viewer.cpp \
+    object.cpp
 
 HEADERS += \
         mainwindow.h \
+    viewer.h \
     modelloader_stl.h \
     trianglemesh.h \
-    viewer.h
+    viewer.h \
+    object.h
 
 FORMS += \
         mainwindow.ui
+
+DISTFILES += \
+    readme.md
 
 INCLUDEPATH +=$$quote(C:/Qt/libQGLViewer-2.6.4)
 

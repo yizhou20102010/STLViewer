@@ -4,10 +4,12 @@
 #include <algorithm>
 #include <QDebug>
 
-ModelLoader_STL::ModelLoader_STL(QObject *parent, const QString &filename , bool is_reload)
-    : QThread(parent), filename(filename), is_reload(is_reload)
+ModelLoader_STL::ModelLoader_STL(QObject *parent, const QString &filepathname , bool is_reload)
+    : QThread(parent), filepathname(filepathname), is_reload(is_reload)
 {
-    // Nothing to do here
+    // extract file name
+    filename = filepathname.mid(filepathname.lastIndexOf('/')+1);
+    filename = filename.mid(0,filename.indexOf('.'));
 }
 
 void ModelLoader_STL::run()
@@ -23,14 +25,14 @@ void ModelLoader_STL::run()
         else
         {
             emit got_mesh(mesh, is_reload);
-            emit loaded_file(filename);
+            emit loaded_file(filepathname);
         }
     }
 }
 
 TriangleMesh *ModelLoader_STL::load_stl()
 {
-    QFile file(filename);
+    QFile file(filepathname);
     if(!file.open(QIODevice::ReadOnly))
     {
         emit error_info(0x10, tr("file missing."));
@@ -167,8 +169,6 @@ TriangleMesh *ModelLoader_STL::read_stl_binary(QFile &file)
 
 TriangleMesh *ModelLoader_STL::mesh_from_verts(QVector<SingleVertex> &verts)
 {
-qDebug()<<"begin sorting";
-
     // Sort the set of vertices (to deduplicate)
     qSort(verts.begin(), verts.end(), compareData);
 
@@ -186,7 +186,7 @@ qDebug()<<"begin sorting";
     }
     verts.clear();
 
-    return new TriangleMesh(vertices, indices);
+    return new TriangleMesh(vertices, indices, filename);
 }
 
 bool ModelLoader_STL::compareData(const SingleVertex &T1, const SingleVertex &T2)

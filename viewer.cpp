@@ -8,8 +8,9 @@
 using namespace std;
 
 Viewer::Viewer(QWidget *parent) : QGLViewer(parent)
+  , curselindex(-1)
 {
-    modelmesh = nullptr;
+    models.clear();
 }
 
 
@@ -18,127 +19,230 @@ void Viewer::show_help_contents()
     help();
 }
 
+void Viewer::drawWithNames()
+{
+    for(auto k=0;k<models.count();k++)
+    {
+        glPushName(k);
+        models.at(k)->draw();
+        glPopName();
+    }
+}
+
+
+void Viewer::postSelection(const QPoint &point)
+{
+    curselindex = selectedName();
+    if(curselindex >= 0 && curselindex < models.count())
+    {
+        setManipulatedFrame(&models[curselindex]->mpFrame);
+    }
+}
+
 void Viewer::onshowModel(TriangleMesh *mesh, bool is_reload)
 {
-    qDebug()<<"mesh info: "<<mesh->vertices.count()<<" "<<mesh->indices.count();
-    modelmesh = mesh;
+    Object *m_object = new Object(mesh);
+    QVector3D midpoint = (mesh->pmax + mesh->pmin)/2;
+    m_object->mpFrame.setPosition(Vec(midpoint.x(), midpoint.y(), midpoint.z()));
+    models.append(m_object);
 
     //给出物体所处的框架范围
-    double xmin,xmax,ymin,ymax,zmin,zmax;
-    if(modelmesh->vertices.count()>0)
-    {
-        xmin = xmax = modelmesh->vertices.at(0).x();
-        ymin = ymax = modelmesh->vertices.at(0).y();
-        zmin = zmax = modelmesh->vertices.at(0).z();
-        for(auto point : modelmesh->vertices)
-        {
-            xmin = fmin(xmin, point.x());
-            xmax = fmax(xmax, point.x());
-            ymin = fmin(ymin, point.y());
-            ymax = fmax(ymax, point.y());
-            zmin = fmin(zmin, point.z());
-            zmax = fmax(zmax, point.z());
-        }
-        pmin.setValue(xmin, ymin, zmin);
-        pmax.setValue(xmax, ymax, zmax);
-        reLoadViewFrame();
-    }
+    pmin.setValue(mesh->pmin.x(), mesh->pmin.y(), mesh->pmin.z());
+    pmax.setValue(mesh->pmax.x(), mesh->pmax.y(), mesh->pmax.z());
 
     update();
 }
 
-
-
-void Viewer::reLoadViewFrame(const int type)
+void Viewer::DrawBasicPrintStructure()
 {
-    double radius = (pmax-pmin).norm();
+    glColor3d(170.0/255, 213.0/255, 255.0/255);
+    double framepoints[8][3] ={{0.0, 0.0, 0.0}, {250, 0.0, 0.0},{250.0, 250.0, 0.0},{0.0,250.0,0.0},
+                               {0.0, 0.0, 300.0}, {250, 0.0, 300.0},{250.0, 250.0, 300.0},{0.0,250.0,300.0}};
+        //底面
+        glBegin(GL_POLYGON);
+        for(auto i=0;i<4;i++)
+        {
+            glNormal3d(0.0, 0.0, 1.0);
+            glVertex3d(framepoints[i][0], framepoints[i][1], framepoints[i][2]);
+        }
+        glEnd();
 
+
+        glColor3b(0.0, 0.0, 0.0);
+
+        glLineWidth(2.0);
+        //框架
+        glBegin(GL_LINE_LOOP);
+        for(auto i=0;i<4;i++)
+            glVertex3d(framepoints[i][0], framepoints[i][1], framepoints[i][2]);
+        glEnd();
+
+        glBegin(GL_LINE_LOOP);
+        for(auto i=4;i<8;i++)
+            glVertex3d(framepoints[i][0], framepoints[i][1], framepoints[i][2]);
+        glEnd();
+
+
+        for(auto i=0;i<4;i++)
+        {
+            glBegin(GL_LINES);
+            glVertex3d(framepoints[i][0], framepoints[i][1], framepoints[i][2]);
+            glVertex3d(framepoints[i+4][0], framepoints[i+4][1], framepoints[i+4][2]);
+            glEnd();
+        }
+        glLineWidth(1.0);
+}
+
+
+void Viewer::loadProjectionType(const int type)
+{
     if(type == 0)
         camera()->setType(Camera::PERSPECTIVE);
     else
         camera()->setType(Camera::ORTHOGRAPHIC);
 
-    setSceneRadius(radius*0.618);
+    double radius = (pmax-pmin).norm();
+    setSceneRadius(radius*0.5);
     setSceneCenter((pmin+pmax)/2);
     showEntireScene();
 
     restoreStateFromFile();
+    updateGL();
+}
+
+void Viewer::loadStandardCamera(const int index)
+{
+    Vec pos, upV, viewD ,centerpos;
+    centerpos = sceneCenter();
+    pos = camera()->position();
+    upV = camera()->upVector();
+    viewD = camera()->viewDirection();
+
+    Vec newpos, newupV, newviewD;
+    switch (index) 
+    {
+    case 0: //Home
+        newviewD = Vec(-0.5, 1, -0.5).unit();
+        newupV = cross(newviewD, cross(Vec(0,0,1), newviewD)).unit();
+        break;
+    case 1: //Front View
+        newviewD = Vec(0, 1, 0);
+        newupV = Vec(0, 0, 1);
+        break;
+    case 2: //Back View
+        newviewD = Vec(0, -1, 0);
+        newupV = Vec(0, 0, 1);
+        break;
+    case 3: //Left View
+        newviewD = Vec(1, 0, 0);
+        newupV = Vec(0, 0, 1);
+        break;
+    case 4: //Right View
+        newviewD = Vec(-1, 0, 0);
+        newupV = Vec(0, 0, 1);
+        break;
+    case 5:  //Up View
+        newviewD = Vec(0 ,0, -1);
+        newupV = Vec(0, 1, 0);
+        break;
+    case 6: //Bottom View
+        newviewD = Vec(0, 0, 1);
+        newupV = Vec(0, -1, 0);
+        break;
+    default:
+        break;
+    }    
+
+    newpos = centerpos - newviewD*((pos - centerpos).norm());
+
+    camera()->setPosition(newpos);
+    camera()->setViewDirection(newviewD);
+    camera()->setUpVector(newupV);
+    
+    updateGL();
 }
 
 void Viewer::init()
 {
-    glClearColor(0.73,0.87,0.99,1.0);
-
+//    glClearColor(0.73,0.87,0.99,1.0);
+    setBackgroundColor(QColor(204,255,255));
     // Light setup
-      glEnable(GL_LIGHT0);
-      glEnable(GL_LIGHT1);
 
-      // Light default parameters
-      const GLfloat light_ambient[4] = {0.9, 0.9, 0.9, 1.0};
-      const GLfloat light_specular[4] = {0.9, 0.9, 0.9, 1.0};
-      const GLfloat light_diffuse[4] = {0.9, 0.9, 0.9, 1.0};
+//       Light default parameters
+      const GLfloat light_ambient[4] = {0.0, 0.0, 0.0, 1.0};
+      const GLfloat light_specular[4] = {1.0, 1.0, 1.0, 1.0};
+      const GLfloat light_diffuse[4] = {1.0, 1.0, 1.0, 1.0};
       const GLfloat position0[]={1.0,1.0,1.0, 0.0};
       const GLfloat position1[]={-1.0, -1.0, -1.0, 0.0};
 
-      glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-      glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-      glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
       glLightfv(GL_LIGHT0, GL_POSITION, position0);
+
 
       glLightfv(GL_LIGHT1, GL_AMBIENT, light_ambient);
       glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular);
       glLightfv(GL_LIGHT1, GL_DIFFUSE, light_diffuse);
       glLightfv(GL_LIGHT1, GL_POSITION, position1);
+      glEnable(GL_LIGHT1);
 
 
-      glEnable(GL_NORMALIZE);
+      pmin.setValue(0, 0, 0);
+      pmax.setValue(250, 250, 300);
+      loadProjectionType(1);
 
-      pmin.setValue(-1,-1,-1);
-      pmax.setValue(1,1,1);
-      reLoadViewFrame();
+
+      loadStandardCamera();
+//      setMouseTracking(true);
+
       restoreStateFromFile();
 }
 
 void Viewer::draw()
 {
+    glPushMatrix();
+//    Vec center = sceneCenter();
+//    glTranslatef(center[0], center[1], center[2]);
+    drawAxis(100);
+//    drawGrid(100,10);
+    glPopMatrix();
 
-    QVector3D point[3], normalv;
-    // Draw ten spirals
-    glColor3d(0.15,0.15,0.15);
+    DrawBasicPrintStructure();
 
-    GLfloat material_ambient[]={0.5, 0.5, 0.5, 1.0};
-    GLfloat material_diffuse[]={0.5, 0.5, 0.5, 1.0};
-    GLfloat material_specular[]={0.5, 0.5, 0.5, 1.0};
-    GLfloat material_shininess=5.0;
-    glMaterialfv(GL_FRONT, GL_AMBIENT,material_ambient);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, material_diffuse);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, material_specular);
-    glMaterialf(GL_FRONT, GL_SHININESS, material_shininess);
-    if(modelmesh != nullptr)
+    glColor3d(0.5,0.5,0.5);
+
+    for(auto k=0;k<models.count();k++)
     {
-        if(modelmesh->indices.count()>0)
-        {
-            for(auto i=0; i<modelmesh->indices.count();i+=3)
-            {
-                for(auto j=0;j<3;j++)
-                    point[j] = modelmesh->vertices.at(modelmesh->indices.at(i+j));
-                normalv = QVector3D::crossProduct(point[2]-point[1], point[1]-point[0]);
-                normalv.normalize();
-                glBegin(GL_POLYGON);
-                glNormal3d(normalv.x(), normalv.y(), normalv.z());
-                glVertex3d(point[0].x(), point[0].y(), point[0].z());
-                glNormal3d(normalv.x(), normalv.y(), normalv.z());
-                glVertex3d(point[1].x(), point[1].y(), point[1].z());
-                glNormal3d(normalv.x(), normalv.y(), normalv.z());
-                glVertex3d(point[2].x(), point[2].y(), point[2].z());
-                glEnd();
-            }
-        }
+        if(curselindex == k)
+            glColor3d(0.6, 0.85, 0.92);
+        else
+            glColor3d(0.5,0.5,0.5);
+        models.at(k)->draw();
     }
+
+    if(curselindex >= 0 && curselindex < models.count())
+    {
+        if (manipulatedFrame()->isManipulated())
+          {
+            glPushMatrix();
+            glMultMatrixd(manipulatedFrame()->matrix());
+            drawAxis(50);
+            glPopMatrix();
+          }
+    }
+
+    glPushMatrix();
+    Vec center = sceneCenter();
+    glTranslatef(center[0], center[1], center[2]);
+    drawAxis(100);
+//    drawGrid(100,10);
+    glPopMatrix();
 }
 
 QString Viewer::helpString()const
 {
     QString text("<h2>STL Viewer</h2>");
-     return text;
+      text += "Left click while pressing the <b>Shift</b> key to select an object "
+              "of the scene.<br><br>";
+      return text;
 }
+
+

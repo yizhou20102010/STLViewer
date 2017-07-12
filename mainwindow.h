@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QAction>
 
 namespace Ui {
 class MainWindow;
@@ -15,21 +16,37 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    bool open_stl(const QString &filename, const bool is_reload=false);
 private slots:
+    void on_actionHelpOperator_triggered();
     void on_actionOpenFile_triggered();
     void on_state_show(int errorindex, QString errorstr);
     void enable_openfile();
     void disable_openfile();
 
-    void on_actionViewer_Help_triggered();
+    void on_actionHomeView_triggered();
+    
+    void on_actionFrontView_triggered();
+    
+    void on_actionBackView_triggered();
+    
+    void on_actionLeftView_triggered();
+    
+    void on_actionRightView_triggered();
+    
+    void on_actionUpView_triggered();
+    
+    void on_actionBottomView_triggered();
+    
+    void on_actionProjectionPerspective_triggered();
+    
+    void on_actionProjectionOrthogonal_triggered();
 
-    void on_actionOrthographic_triggered();
-
-    void on_actionPerspective_triggered();
-
+protected:
+    void contextMenuEvent(QContextMenuEvent *event);//右键菜单
 private:
     Ui::MainWindow *ui;
+    bool open_stl(const QString &filename);
+    QAction *curCheckedAction;
 
 
 };

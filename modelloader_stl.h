@@ -16,7 +16,7 @@ class ModelLoader_STL : public QThread
 {
     Q_OBJECT
 public:
-    explicit ModelLoader_STL(QObject *parent = nullptr, const QString &filename = tr(""), bool is_reload = false);
+    explicit ModelLoader_STL(QObject *parent = nullptr, const QString &filepathname = tr(""), bool is_reload = false);
     void run();
 
 protected:
@@ -27,14 +27,14 @@ protected:
     TriangleMesh* read_stl_binary(QFile& file);
 
 signals:
-    void loaded_file(QString filename);
+    void loaded_file(QString filepathname);
     void got_mesh(TriangleMesh* m, bool is_reload);
 
     void error_info(int, QString);
 public slots:
 
 private:
-    QString filename;
+    QString filepathname, filename;
     bool is_reload;
     /*  Used to warn on binary STLs that begin with the word 'solid'" */
     bool confusing_stl;
